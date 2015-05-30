@@ -51,7 +51,7 @@ void main()
 }
 ```
 
-![example output](https://github.com/dexset/deslog/example/simple/output.png)
+![example output](https://github.com/dexset/deslog/blob/master/example/simple/output.png)
 
 Flag `--log` used for setting max level of logging output.
 Default level is `error`. If log function called with greater level it's skipped.
