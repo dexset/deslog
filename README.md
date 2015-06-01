@@ -1,4 +1,6 @@
 ## D Extended Set (DES) Logging System
+[![Build Status](https://travis-ci.org/dexset/deslog.svg?branch=master)](https://travis-ci.org/dexset/deslog)
+[![Join the chat at https://gitter.im/dexset/discussion](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dexset/discussion)
 
 Package provides static `Logger logger`
 
