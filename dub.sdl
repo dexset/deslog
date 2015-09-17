@@ -1,0 +1,5 @@
+name "deslog"
+description "D Extended Set Logging System"
+authors "Oleg Butko (deviator)"
+license "MIT"
+targetType "sourceLibrary"
