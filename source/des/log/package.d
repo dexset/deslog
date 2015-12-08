@@ -183,6 +183,10 @@ public
     import des.log.output;
 }
 
+import core.runtime, std.getopt;
+import std.stdio;
+import std.file;
+
 /// for simple adding logging to class
 mixin template ClassLogger()
 {
@@ -207,13 +211,11 @@ Logger logger; ///
 
 static this() { logger = new Logger; }
 
+GetoptResult logger_getopt_result;
+
 shared static this()
 {
     if( g_rule !is null ) return;
-
-    import core.runtime, std.getopt;
-    import std.stdio;
-    import std.file;
 
     g_rule = new shared Rule;
 
@@ -225,7 +227,7 @@ shared static this()
 
     try
     {
-        getopt( args,
+        logger_getopt_result = getopt( args,
                 std.getopt.config.passThrough,
                 "log", &logging,
                 "log-use-min", &use_minimal,
