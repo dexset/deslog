@@ -1,4 +1,5 @@
 import des.log;
+import std.getopt;
 
 // write log to string array
 synchronized class StringLogOutput : LogOutput
@@ -6,7 +7,7 @@ synchronized class StringLogOutput : LogOutput
     string[] result;
 
 protected:
-    override void write( in LogMessage, string msg )
+    override void writeMessage( in LogMessage, string msg )
     { result ~= msg; }
 
     override string formatLogMessage( in LogMessage lm ) const
@@ -41,18 +42,20 @@ class A
     }
 }
 
-void main()
+void main( string[] args )
 {
+    getopt( args, log_getopt.expand );
+
     auto slo = new shared StringLogOutput;
-    logger.output.append( "string", slo );
-    logger.output.disable( "console" );
+    logger.output["string"] = slo;
+    logger.output["console"].enable = false;
 
     scope a = new A;
 
     logger.fatal( "fatal message" );
     logger.error( "error message" );
     logger.warn( "warn message" );
-    logger.output.enable( "console" );
+    logger.output["console"].enable = true;
     logger.info( "info message" );
     logger.Debug( "debug message" );
     logger.trace( "trace message" );

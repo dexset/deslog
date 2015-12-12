@@ -29,7 +29,7 @@ protected:
     /// check log message level allowed with current rules for emmiter
     final void procMessage( in LogMessage lm ) const nothrow
     {
-        try if( rule.allowedLevel( lm.emitter ) >= lm.level ) writeLog( lm );
+        try if( rule.isAllowed(lm) ) writeLog( lm );
         catch( Exception e ) writeLogFailPrint(e);
     }
 
@@ -42,11 +42,10 @@ protected:
 
     /// write log to logoutput
     void writeLog( in LogMessage lm ) const
-    { output.write( chooseOutputName(lm), lm ); }
+    { output.writeMessage( chooseOutputName(lm), lm ); }
 
-    /// logger can chouse output name
-    string chooseOutputName( in LogMessage lvl ) const
-    { return OutputHandler.console_name; }
+    /// logger can chouse output name, empty (default) for broadcast
+    string chooseOutputName( in LogMessage lvl ) const { return ""; }
 
     /// transform caller func name to emitter name
     string getEmitterName( string func_name ) const nothrow

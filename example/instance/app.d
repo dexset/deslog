@@ -1,4 +1,5 @@
 import des.log;
+import std.getopt;
 
 class A
 {
@@ -37,8 +38,9 @@ class C : A
     }
 }
 
-void main()
+void main( string[] args )
 {
+    getopt( args, log_getopt.expand );
     scope a = new B;
     scope f = new C( "first" );
     scope s = new C( "second" );

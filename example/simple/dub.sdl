@@ -1,0 +1,4 @@
+name "app"
+targetType "executable"
+sourcePaths "."
+dependency "deslog" path="../.."

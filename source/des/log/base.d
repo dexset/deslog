@@ -9,7 +9,12 @@ import des.log.rule;
 
 ///
 class LogException : Exception
-{ this( string msg ) pure @safe nothrow { super(msg); } }
+{
+    this( string msg ) pure @safe nothrow { super(msg); }
+
+    static auto fmt(Args...)( Args args )
+    { return new LogException( format( args ) ); }
+}
 
 ///
 enum LogLevel

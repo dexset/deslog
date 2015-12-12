@@ -183,9 +183,9 @@ public
     import des.log.output;
 }
 
-import core.runtime, std.getopt;
 import std.stdio;
 import std.file;
+import std.typecons;
 
 /// for simple adding logging to class
 mixin template ClassLogger()
@@ -211,64 +211,98 @@ Logger logger; ///
 
 static this() { logger = new Logger; }
 
-GetoptResult logger_getopt_result;
+enum log_getopt = tuple(
+            "log", "set logging level <[emitter:]level>", &setLogRule,
+            "log-use-min", "using minimal logging level in rule hierarchy <bool>", &setLogUseMin,
+            "log-only-reg", "logging only for setted emitters", &setLogOnlyReg,
+
+            "log-file", "set log file <[output:]path/to/logfile>", &setLogFile,
+
+            "log-output", "set rules for log output <output:[emitter:]level>", &setLogOutputRule,
+            "log-output-use-min", "using minimal logging level in output rule <output:bool>", &setLogOutputUseMin,
+            "log-output-only-reg", "logging only for setted emitters into output <output:bool>", &setLogOutputOnlyReg,
+        );
+
+private void setLogRule( string opt, string value )
+{
+    auto sp = value.split(":");
+    try
+    {
+        if( sp.length == 1 ) g_rule.setLevel( toLogLevel( sp[0] ) );
+        else if( sp.length == 2 ) g_rule.setLevel( toLogLevel( sp[1] ), sp[0] );
+        else throw new Exception( "bad split" );
+    }
+    catch( Exception e )
+        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+}
+
+private void setLogUseMin( string opt, string value )
+{
+    try g_rule.useMinimal = to!bool( value );
+    catch( Exception e )
+        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+}
+
+private void setLogOnlyReg( string opt, string value )
+{
+    try g_rule.onlyRegister = to!bool( value );
+    catch( Exception e )
+        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+}
+
+private void setLogFile( string opt, string value )
+{
+    auto sp = value.split(":");
+    try
+    {
+        if( sp.length == 1 ) g_output["logfile"] = new shared FileLogOutput(sp[0]);
+        else if( sp.length == 2 ) g_output[sp[0]] = new shared FileLogOutput(sp[1]);
+        else throw new Exception( "bad split" );
+    }
+    catch( Exception e )
+        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+}
+
+private void setLogOutputRule( string opt, string value )
+{
+    auto sp = value.split(":");
+    try
+    {
+        if( sp.length == 2 ) g_output[sp[0]].rule.setLevel( toLogLevel(sp[1]) );
+        else if( sp.length == 3 ) g_output[sp[0]].rule.setLevel( toLogLevel(sp[2]), sp[1] );
+        else throw new Exception( "bad split" );
+    }
+    catch( Exception e )
+        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+}
+
+private void setLogOutputUseMin( string opt, string value )
+{
+    auto sp = value.split(":");
+    try
+    {
+        if( sp.length == 2 ) g_output[sp[0]].rule.useMinimal = to!bool( sp[1] );
+        else throw new Exception( "bad split" );
+    }
+    catch( Exception e )
+        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+}
+
+private void setLogOutputOnlyReg( string opt, string value )
+{
+    auto sp = value.split(":");
+    try
+    {
+        if( sp.length == 2 ) g_output[sp[0]].rule.onlyRegister = to!bool( sp[1] );
+        else throw new Exception( "bad split" );
+    }
+    catch( Exception e )
+        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+}
 
 shared static this()
 {
     if( g_rule !is null ) return;
-
     g_rule = new shared Rule;
-
-    auto args = thisExePath ~ Runtime.args;
-    string[] logging;
-    bool use_minimal = false;
-    bool console_color = true;
-    string logfile;
-
-    try
-    {
-        logger_getopt_result = getopt( args,
-                std.getopt.config.passThrough,
-                "log", &logging,
-                "log-use-min", &use_minimal,
-                "log-console-color", &console_color,
-                "log-file", &logfile,
-              );
-    }
-    catch( Exception e ) stderr.writefln( "bad log arguments: %s", e.msg );
-
-    g_output = new shared OutputHandler( console_color );
-
-    if( logfile.length )
-        g_output.append( "logfile", new shared FileLogOutput(logfile) );
-
-    g_rule.use_minimal = use_minimal;
-
-    foreach( ln; logging )
-    {
-        auto sp = ln.split(":");
-        if( sp.length == 1 )
-        {
-            try g_rule.setLevel( toLogLevel( sp[0] ) );
-            catch( Exception e )
-                stderr.writefln( "log argument '%s' can't conv to LogLevel: %s", ln, e.msg );
-        }
-        else if( sp.length == 2 )
-        {
-            try
-            {
-                auto level = toLogLevel( sp[1] );
-                g_rule.setLevel( level, sp[0] );
-            }
-            catch( Exception e )
-                stderr.writefln( "log argument '%s' can't conv '%s' to LogLevel: %s", ln, sp[1], e.msg );
-        }
-        else stderr.writefln( "bad log argument: %s" );
-    }
-
-    if( logging.length )
-    {
-        writeln( "[log use min]: ", use_minimal );
-        writeln( "[log rules]:\n", g_rule.print() );
-    }
+    g_output = new shared OutputHandler();
 }

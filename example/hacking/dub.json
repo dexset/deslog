@@ -1,6 +1,0 @@
-{
-    "name": "app",
-    "targetType": "executable",
-    "sourcePaths": [ "." ],
-    "dependencies" : { "deslog": { "path" : "../.." } }
-}

@@ -5,17 +5,37 @@ import std.string : toStringz;
 import std.datetime;
 
 import des.log.base;
+import des.log.rule;
 
 /// output for logger
 synchronized abstract class LogOutput
 {
+    Rule rule;
+    private bool _enable = true;
+
+    @property
+    {
+        bool enable() const { return _enable; }
+        bool enable( bool v ) { _enable = v; return v; }
+    }
+
+    this()
+    {
+        rule = new shared Rule;
+        rule.setLevel( LogLevel.TRACE );
+    }
+
     ///
-    final void opCall( in LogMessage lm ) { write( lm, formatLogMessage( lm ) ); }
+    void opCall( in LogMessage lm )
+    {
+        if( enable && rule.isAllowed(lm) )
+            writeMessage( lm, formatLogMessage( lm ) );
+    }
 
 protected:
 
     ///
-    void write( in LogMessage, string );
+    void writeMessage( in LogMessage, string );
 
     /// by default call des.util.logsys.base.defaultFormatLogMessage
     string formatLogMessage( in LogMessage lm ) const
@@ -30,7 +50,7 @@ protected:
     override
     {
         /// empty
-        void write( in LogMessage, string ){}
+        void writeMessage( in LogMessage, string ) {}
 
         /// not call formating message
         string formatLogMessage( in LogMessage lm ) const { return "null"; }
@@ -41,25 +61,23 @@ protected:
 synchronized class FileLogOutput : LogOutput
 {
     import core.stdc.stdio;
-    import std.datetime;
-    FILE* file; ///
+    import std.exception;
+    FILE* file;
 
     ///
-    this( string filename )
+    this( string fname )
     {
-        file = fopen( filename.toStringz, "a" );
-        if( file is null )
-            throw new LogException( "unable to open file '" ~ filename ~ "' at write mode" );
+        file = enforce( fopen( fname.toStringz, "a\0".ptr ),
+                "Cannot open file '" ~ fname ~ "' in append mode" );
         fprintf( file, "%s\n", firstLine().toStringz );
     }
 
-    ~this() { if( file ) fclose( file ); }
+    ~this() { fclose( file ); }
 
 protected:
 
-    /// fprintf
-    override void write( in LogMessage, string msg )
-    { fprintf( file, "%s\n", msg.toStringz ); }
+    /// 
+    override void writeMessage( in LogMessage, string msg ) { fprintf( file, "%s\n", msg.toStringz ); }
 
     /++ call from ctor and past to file first line with datetime
         Returns:
@@ -67,9 +85,14 @@ protected:
      +/
     string firstLine() const
     {
+        import core.runtime;
+        import std.datetime;
+        import std.array;
+
         auto dt = Clock.currTime;
-        return format( "%02d.%02d.%4d %02d:%02d:%02d",
-                dt.day, dt.month, dt.year, dt.hour, dt.minute, dt.second );
+        return format( "%02d.%02d.%4d %02d:%02d:%02d %s",
+                dt.day, dt.month, dt.year, dt.hour, dt.minute, dt.second,
+                Runtime.args.join(" ") );
     }
 }
 
@@ -77,7 +100,7 @@ protected:
 synchronized class ConsoleLogOutput : LogOutput
 {
     /// log messages with level > ERROR puts to stdout, and stderr otherwise
-    protected override void write( in LogMessage lm, string str )
+    protected override void writeMessage( in LogMessage lm, string str )
     {
         if( lm.level > LogMessage.Level.ERROR )
             stdout.writeln( str );
@@ -89,82 +112,9 @@ synchronized class ConsoleLogOutput : LogOutput
 /// colorise console output with escape seqence
 synchronized class ColorConsoleLogOutput : ConsoleLogOutput
 {
-    enum
-    {
-        COLOR_OFF = "\x1b[0m", /// reset color
-
-        // Regular Colors
-        FG_BLACK  = "\x1b[0;30m", ///
-        FG_RED    = "\x1b[0;31m", ///
-        FG_GREEN  = "\x1b[0;32m", ///
-        FG_YELLOW = "\x1b[0;33m", ///
-        FG_BLUE   = "\x1b[0;34m", ///
-        FG_PURPLE = "\x1b[0;35m", ///
-        FG_CYAN   = "\x1b[0;36m", ///
-        FG_WHITE  = "\x1b[0;37m", ///
-
-        // Bold
-        FG_B_BLACK  = "\x1b[1;30m", ///
-        FG_B_RED    = "\x1b[1;31m", ///
-        FG_B_GREEN  = "\x1b[1;32m", ///
-        FG_B_YELLOW = "\x1b[1;33m", ///
-        FG_B_BLUE   = "\x1b[1;34m", ///
-        FG_B_PURPLE = "\x1b[1;35m", ///
-        FG_B_CYAN   = "\x1b[1;36m", ///
-        FG_B_WHITE  = "\x1b[1;37m", ///
-
-        // Underline
-        FG_U_BLACK  = "\x1b[4;30m", ///
-        FG_U_RED    = "\x1b[4;31m", ///
-        FG_U_GREEN  = "\x1b[4;32m", ///
-        FG_U_YELLOW = "\x1b[4;33m", ///
-        FG_U_BLUE   = "\x1b[4;34m", ///
-        FG_U_PURPLE = "\x1b[4;35m", ///
-        FG_U_CYAN   = "\x1b[4;36m", ///
-        FG_U_WHITE  = "\x1b[4;37m", ///
-
-        // Background
-        BG_BLACK  = "\x1b[40m", ///
-        BG_RED    = "\x1b[41m", ///
-        BG_GREEN  = "\x1b[42m", ///
-        BG_YELLOW = "\x1b[43m", ///
-        BG_BLUE   = "\x1b[44m", ///
-        BG_PURPLE = "\x1b[45m", ///
-        BG_CYAN   = "\x1b[46m", ///
-        BG_WHITE  = "\x1b[47m", ///
-
-        // High Intensity
-        FG_I_BLACK  = "\x1b[0;90m", ///
-        FG_I_RED    = "\x1b[0;91m", ///
-        FG_I_GREEN  = "\x1b[0;92m", ///
-        FG_I_YELLOW = "\x1b[0;93m", ///
-        FG_I_BLUE   = "\x1b[0;94m", ///
-        FG_I_PURPLE = "\x1b[0;95m", ///
-        FG_I_CYAN   = "\x1b[0;96m", ///
-        FG_I_WHITE  = "\x1b[0;97m", ///
-
-        // Bold High Intensity
-        FG_BI_BLACK  = "\x1b[1;90m", ///
-        FG_BI_RED    = "\x1b[1;91m", ///
-        FG_BI_GREEN  = "\x1b[1;92m", ///
-        FG_BI_YELLOW = "\x1b[1;93m", ///
-        FG_BI_BLUE   = "\x1b[1;94m", ///
-        FG_BI_PURPLE = "\x1b[1;95m", ///
-        FG_BI_CYAN   = "\x1b[1;96m", ///
-        FG_BI_WHITE  = "\x1b[1;97m", ///
-
-        // High Intensity backgrounds
-        BG_I_BLACK  = "\x1b[0;100m", ///
-        BG_I_RED    = "\x1b[0;101m", ///
-        BG_I_GREEN  = "\x1b[0;102m", ///
-        BG_I_YELLOW = "\x1b[0;103m", ///
-        BG_I_BLUE   = "\x1b[0;104m", ///
-        BG_I_PURPLE = "\x1b[0;105m", ///
-        BG_I_CYAN   = "\x1b[0;106m", ///
-        BG_I_WHITE  = "\x1b[0;107m", ///
-    };
-
 protected:
+
+    import des.log.consolecolor;
 
     /// formatting with colors
     override string formatLogMessage( in LogMessage lm ) const
@@ -172,7 +122,7 @@ protected:
         auto color = chooseColors( lm );
         return format( "[%6$s%1$016.9f%5$s][%7$s%2$5s%5$s][%8$s%3$s%5$s]: %9$s%4$s%5$s",
                        lm.ts / 1e9f, lm.level, lm.emitter, lm.message,
-                       COLOR_OFF, color[0], color[1], color[2], color[3] );
+                       cast(string)CEColor.OFF, color[0], color[1], color[2], color[3] );
     }
 
     /// returns 4 colors for timestamp, log level, emitter name, message text
@@ -182,11 +132,12 @@ protected:
 
         final switch( lm.level )
         {
-            case LogMessage.Level.FATAL: clr = FG_BLACK ~ BG_RED; break;
-            case LogMessage.Level.ERROR: clr = FG_RED; break;
-            case LogMessage.Level.WARN: clr = FG_PURPLE; break;
-            case LogMessage.Level.INFO: clr = FG_CYAN; break;
-            case LogMessage.Level.DEBUG: clr = FG_YELLOW; break;
+            //case LogMessage.Level.FATAL: clr = CEColor.FG_BLACK ~ CEColor.BG_RED; break;
+            case LogMessage.Level.FATAL: clr = CEColor.FG_BI_RED; break;
+            case LogMessage.Level.ERROR: clr = CEColor.FG_RED; break;
+            case LogMessage.Level.WARN: clr = CEColor.FG_PURPLE; break;
+            case LogMessage.Level.INFO: clr = CEColor.FG_CYAN; break;
+            case LogMessage.Level.DEBUG: clr = CEColor.FG_YELLOW; break;
             case LogMessage.Level.TRACE: break;
         }
 
@@ -199,76 +150,45 @@ synchronized class OutputHandler
 {
 package:
     LogOutput[string] list; ///
-    bool[string] enabled; /// any of log output can be disabled or enabled
 
     ///
-    this( bool console_color=true )
+    this()
     {
         version(linux)
-        {
-            if( console_color )
-                list[console_name] = new shared ColorConsoleLogOutput;
-            else
-                list[console_name] = new shared ConsoleLogOutput;
-        }
+            list[console] = new shared ColorConsoleLogOutput;
         else
-        {
-            list[console_name] = new shared ConsoleLogOutput;
-        }
-        list[null_name] = new shared NullLogOutput;
-
-        enabled[console_name] = true;
-        enabled[null_name] = false;
+            list[console] = new shared ConsoleLogOutput;
     }
 
     /// call from Logger.writeLog by default
-    void write( string output_name, in LogMessage lm )
+    void writeMessage( string output_name, in LogMessage lm )
     {
-        if( broadcast )
-        {
-            foreach( name, e; enabled )
-                if( name in list && e )
-                    list[name](lm);
-        }
-        else
+        if( output_name.length )
         {
             if( output_name in list )
                 list[output_name](lm);
         }
+        else foreach( name, lo; list ) lo(lm);
     }
-
-    bool _broadcast = true;
 
 public:
 
-    enum console_name = "console"; ///
-    enum null_name = "null"; ///
+    enum console = "console"; ///
+
+    /// get output
+    shared(LogOutput) opIndex( string name ) { return list[name]; }
+
+    /// set output
+    shared(LogOutput) opIndexAssign( shared LogOutput output, string name )
+    in{ assert( output !is null ); } body
+    { return list[name] = output; }
+
+    string[] names() @property { return list.keys; }
 
     ///
-    bool broadcast() const @property { return _broadcast; }
-
-    ///
-    bool broadcast( bool b ) @property { _broadcast = b; return b; }
-
-    /// enable output
-    void enable( string name ) { enabled[name] = true; }
-
-    /// disable output
-    void disable( string name ) { enabled[name] = false; }
-
-    /// append output to list
-    void append( string name, shared LogOutput output )
-    in{ assert( output !is null ); }
-    body
-    {
-        list[name] = output;
-        enable( name );
-    }
-
-    /// remove output from list
     void remove( string name )
     {
-        if( name == console_name || name == null_name )
+        if( name == console )
             throw new LogException( "can not unregister '" ~ name ~ "' log output" );
         list.remove( name );
     }

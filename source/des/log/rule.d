@@ -15,6 +15,7 @@ package:
     shared Rule[string] inner; ///
 
     bool use_minimal = true; ///
+    bool only_register = false; ///
 
 public:
 
@@ -32,16 +33,32 @@ public:
         bool useMinimal() const
         {
             if( parent !is null )
-                return parent.useMinimal();
+                return parent.useMinimal;
             else return use_minimal;
         }
 
         ///
-        void useMinimal( bool um )
+        bool useMinimal( bool v )
         {
             if( parent !is null )
-                parent.useMinimal = um;
-            else use_minimal = um;
+                return parent.useMinimal = v;
+            else return use_minimal = v;
+        }
+
+        ///
+        bool onlyRegister() const
+        {
+            if( parent !is null )
+                return parent.onlyRegister;
+            else return only_register;
+        }
+
+        ///
+        bool onlyRegister( bool v )
+        {
+            if( parent !is null )
+                return parent.onlyRegister = v;
+            else return only_register = v;
         }
     }
 
@@ -56,27 +73,49 @@ public:
     }
 
     /// if emitter is "" returns self level
-    LogLevel allowedLevel( string emitter="" )
+    LogLevel allowedLevel( string emitter="" ) const
     {
         auto addr = splitAddress( emitter );
         if( addr[0].length == 0 ) return level;
         auto iname = addr[0];
-        if( iname !in inner ) return level;
+
+        if( iname !in inner )
+        {
+            import des.log.consolecolor;
+            pragma(msg, CEColor.FG_B_RED, "TODO: onlyRegister not works", CEColor.OFF, __FILE__, ":", __LINE__ );
+            //TODO:
+            //if( onlyRegister )
+            //    return LogLevel.OFF;
+            //else
+                return level;
+        }
+
         if( useMinimal )
             return min( level, inner[iname].allowedLevel( addr[1] ) );
         else
             return inner[iname].allowedLevel( addr[1] );
     }
 
-    string print( string offset="" ) const
-    {
-        string ret = format( "%s", level );
-        foreach( key, val; inner )
-            ret ~= format( "\n%s%s : %s", offset, key, val.print( offset ~ mlt(" ",key.length) ) );
-        return ret;
-    }
+    /// test is message allowed for this rule
+    bool isAllowed( in LogMessage lm ) const
+    { return allowedLevel( lm.emitter ) >= lm.level; }
+
+    /// return string what represent of rule structure
+    string strRepresent() const { return implStrRepresent(); }
 
 protected:
+
+    string implStrRepresent( string offset="", bool first=true ) const
+    {
+        string ret = format( "%s", level );
+        if( first )
+            ret ~= format( " use min: %s, only register: %s",
+                useMinimal, onlyRegister );
+        foreach( key, val; inner )
+            ret ~= format( "\n%s%s : %s", offset, key,
+                    val.implStrRepresent( offset ~ mlt(" ",key.length), false ) );
+        return ret;
+    }
 
     ///
     static string[2] splitAddress( string emitter )
