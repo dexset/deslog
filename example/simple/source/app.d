@@ -28,7 +28,7 @@ void main( string[] args )
 
     writeln( "global rules:\n", logger.rule.strRepresent() );
     foreach( name; logger.output.names )
-        writeln( name, ":\n", logger.output[name].rule.strRepresent() );
+        writefln( "%s:\n%s\n", name, logger.output[name].rule.strRepresent() );
 
     logger.fatal( "%s:%d", __FILE__, __LINE__ );
     logger.error( "%s:%d", __FILE__, __LINE__ );

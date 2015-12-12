@@ -78,7 +78,7 @@ string ntFormat(Args...)( Args args ) nothrow
         return res;
     }
     catch( Exception e )
-        return "[MESSAGE CTOR EXCEPTION]: " ~ e.msg;
+        return "[NTFORMAT FAILS]: " ~ e.msg;
 }
 
 ///

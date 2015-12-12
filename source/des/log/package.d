@@ -185,7 +185,9 @@ public
 
 import std.stdio;
 import std.file;
+import std.string;
 import std.typecons;
+import std.getopt;
 
 /// for simple adding logging to class
 mixin template ClassLogger()
@@ -218,17 +220,13 @@ shared static this()
     g_output = new shared OutputHandler();
 }
 
-import std.getopt;
-
 void logReadSettingsFromFile( string fname )
 {
-    import std.file : readText;
-    import std.string;
-    auto set = "" ~ readText( fname ).stripLines.join(" ").split(" ");
-    getopt( set, log_getopt_file.expand );
+    auto set = "" ~ readText( fname ).splitLines.join(" ").split(" ");
+    getopt( set, log_getopt_base.expand );
 }
 
-private enum log_getopt_file = tuple(
+private enum log_getopt_base = tuple(
             "log", `set logging level <[emitter:]level>, default emitter value=""`, &setLogRule,
             "log-use-min", "using minimal logging level in rule hierarchy <bool>", &setLogUseMin,
             "log-only-reg", "logging only for setted emitters <bool>", &setLogOnlyReg,
@@ -240,9 +238,11 @@ private enum log_getopt_file = tuple(
             "log-output-only-reg", "logging only for setted emitters into output <output:bool>", &setLogOutputOnlyReg,
         );
 
-enum log_getopt = tuple( log_getopt_file.expand,
+enum log_getopt_file_settings = tuple(
             "log-settings", "read settings file <path/to/logsettings>, format as logging options for getopt, without this option", &logReadSettingsFromFileOpt
         );
+
+enum log_getopt = tuple( log_getopt_base.expand, log_getopt_file_settings.expand );
 
 ///
 class LogGetOptException : GetOptException
