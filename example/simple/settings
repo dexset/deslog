@@ -1,0 +1,2 @@
+--log=info --log-use-min=false
+--log-file=p1:pack1.txt --log-output=p1:pack1:debug --log-output-only-reg=p1:true
