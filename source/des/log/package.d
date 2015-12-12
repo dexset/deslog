@@ -211,19 +211,52 @@ Logger logger; ///
 
 static this() { logger = new Logger; }
 
-enum log_getopt = tuple(
-            "log", "set logging level <[emitter:]level>", &setLogRule,
+shared static this()
+{
+    if( g_rule !is null ) return;
+    g_rule = new shared Rule;
+    g_output = new shared OutputHandler();
+}
+
+import std.getopt;
+
+void logReadSettingsFromFile( string fname )
+{
+    import std.file : readText;
+    import std.string;
+    auto set = "" ~ readText( fname ).stripLines.join(" ").split(" ");
+    getopt( set, log_getopt_file.expand );
+}
+
+private enum log_getopt_file = tuple(
+            "log", `set logging level <[emitter:]level>, default emitter value=""`, &setLogRule,
             "log-use-min", "using minimal logging level in rule hierarchy <bool>", &setLogUseMin,
-            "log-only-reg", "logging only for setted emitters", &setLogOnlyReg,
+            "log-only-reg", "logging only for setted emitters <bool>", &setLogOnlyReg,
 
-            "log-file", "set log file <[output:]path/to/logfile>", &setLogFile,
+            "log-file", `set log file <[output:]path/to/logfile>, default output value="logfile"`, &setLogFile,
 
-            "log-output", "set rules for log output <output:[emitter:]level>", &setLogOutputRule,
+            "log-output", `set rules for log output <output:[emitter:]level>, default emitter value=""`, &setLogOutputRule,
             "log-output-use-min", "using minimal logging level in output rule <output:bool>", &setLogOutputUseMin,
             "log-output-only-reg", "logging only for setted emitters into output <output:bool>", &setLogOutputOnlyReg,
         );
 
-private void setLogRule( string opt, string value )
+enum log_getopt = tuple( log_getopt_file.expand,
+            "log-settings", "read settings file <path/to/logsettings>, format as logging options for getopt, without this option", &logReadSettingsFromFileOpt
+        );
+
+///
+class LogGetOptException : GetOptException
+{
+    @safe pure nothrow
+    this( string msg, string file=__FILE__, size_t line=__LINE__ )
+    { super( msg, file, line ); }
+
+    static fmt(string file=__FILE__,size_t line=__LINE__,Args...)( Exception e, Args args )
+    { return new LogGetOptException( format( args ) ~ ": " ~ e.msg, file, line ); }
+}
+
+private:
+void setLogRule( string opt, string value )
 {
     auto sp = value.split(":");
     try
@@ -233,24 +266,24 @@ private void setLogRule( string opt, string value )
         else throw new Exception( "bad split" );
     }
     catch( Exception e )
-        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }
 
-private void setLogUseMin( string opt, string value )
+void setLogUseMin( string opt, string value )
 {
     try g_rule.useMinimal = to!bool( value );
     catch( Exception e )
-        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }
 
-private void setLogOnlyReg( string opt, string value )
+void setLogOnlyReg( string opt, string value )
 {
     try g_rule.onlyRegister = to!bool( value );
     catch( Exception e )
-        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }
 
-private void setLogFile( string opt, string value )
+void setLogFile( string opt, string value )
 {
     auto sp = value.split(":");
     try
@@ -260,10 +293,10 @@ private void setLogFile( string opt, string value )
         else throw new Exception( "bad split" );
     }
     catch( Exception e )
-        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }
 
-private void setLogOutputRule( string opt, string value )
+void setLogOutputRule( string opt, string value )
 {
     auto sp = value.split(":");
     try
@@ -273,10 +306,10 @@ private void setLogOutputRule( string opt, string value )
         else throw new Exception( "bad split" );
     }
     catch( Exception e )
-        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }
 
-private void setLogOutputUseMin( string opt, string value )
+void setLogOutputUseMin( string opt, string value )
 {
     auto sp = value.split(":");
     try
@@ -285,10 +318,10 @@ private void setLogOutputUseMin( string opt, string value )
         else throw new Exception( "bad split" );
     }
     catch( Exception e )
-        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }
 
-private void setLogOutputOnlyReg( string opt, string value )
+void setLogOutputOnlyReg( string opt, string value )
 {
     auto sp = value.split(":");
     try
@@ -297,12 +330,12 @@ private void setLogOutputOnlyReg( string opt, string value )
         else throw new Exception( "bad split" );
     }
     catch( Exception e )
-        throw LogException.fmt( "bad format %s=%s : %s", opt, value, e.msg );
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }
 
-shared static this()
+void logReadSettingsFromFileOpt( string opt, string value )
 {
-    if( g_rule !is null ) return;
-    g_rule = new shared Rule;
-    g_output = new shared OutputHandler();
+    try logReadSettingsFromFile( value );
+    catch( Exception e )
+        throw LogGetOptException.fmt( e, "error option %s=%s", opt, value );
 }

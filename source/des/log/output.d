@@ -3,6 +3,7 @@ module des.log.output;
 import std.stdio : stdout, stderr;
 import std.string : toStringz;
 import std.datetime;
+import std.exception;
 
 import des.log.base;
 import des.log.rule;
@@ -176,7 +177,11 @@ public:
     enum console = "console"; ///
 
     /// get output
-    shared(LogOutput) opIndex( string name ) { return list[name]; }
+    shared(LogOutput) opIndex( string name )
+    {
+        enforce( name in list, LogException.fmt( "no output named '%s'", name ) );
+        return list[name];
+    }
 
     /// set output
     shared(LogOutput) opIndexAssign( shared LogOutput output, string name )
